@@ -13,25 +13,25 @@ interface BFFClaims {
 
 
 interface Appointment {
-    id:               string;
-    patient_id:       string;
-    doctorId:        string;
-    clinicId:        string;
-    first_name:       string;
-    last_name:        string;
-    dob:              string;
-    phone:            string;
-    email:            string;
+    id: string;
+    patient_id: string;
+    doctorId: string;
+    clinicId: string;
+    first_name: string;
+    last_name: string;
+    dob: string;
+    phone: string;
+    email: string;
     appointment_type: string;
-    status:           string;
-    reason:           string;
-    notes:            string | null;
-    start_time:       string;
-    end_time:         string;
-    timezone:         string;
-    durationMinutes:  number;
-    room: string; 
-    insuranceVerified: boolean; 
+    status: string;
+    reason: string;
+    notes: string | null;
+    start_time: string;
+    end_time: string;
+    timezone: string;
+    durationMinutes: number;
+    room: string;
+    insuranceVerified: boolean;
     copayCollected: boolean;
     insurance: string;
 }
@@ -44,22 +44,22 @@ interface Task {
 }
 
 interface DashboardProps {
-    user:      BFFClaims;
-    bffToken:  string;
+    user: BFFClaims;
+    bffToken: string;
 }
 
 
 function toCamelCase(type: string): string {
     return type
-        .split('_')                          
+        .split('_')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1)) // ["General", "Checkup"]
-        .join(' ');    
+        .join(' ');
 }
 
 
 function calcDuration(start_time: string, end_time: string): number {
     const start = new Date(start_time);
-    const end   = new Date(end_time);
+    const end = new Date(end_time);
     return Math.round((end.getTime() - start.getTime()) / 60000); // returns minutes
 }
 const getAppointments = async (doctorId: string, clinicId: string, bffToken: string | null): Promise<Appointment[]> => {
@@ -77,34 +77,34 @@ const getAppointments = async (doctorId: string, clinicId: string, bffToken: str
     const data = await response.json();
     const raw: any[] = Array.isArray(data) ? data : data.appts;
 
-    // ✅ assign map result to variable
+   //  assign map result to variable
     const mapped: Appointment[] = raw.map((a: any, i: number) => ({
-        id:               a.id,
-        doctorId:         a.doctor_id    ?? doctorId,
-        clinicId:         a.clinic_id    ?? clinicId,
-        patient_id:       a.patient_id,
-        first_name:       a.first_name,
-        last_name:        a.last_name,
-        dob:              a.dob,
-        phone:            a.phone,
-        email:            a.email,
-        insurance:        a.insurance    ?? "N/A",
-        status:           a.status,
-        reason:           a.reason       ?? "",
-        notes:            a.notes        ?? (a.status === "completed" ? "Patient reviewed. Follow-up in 6 weeks." : null),
-        start_time:       a.start_time,
-        end_time:         a.end_time,
-        durationMinutes:  calcDuration(a.start_time, a.end_time),
-        timezone:         a.timezone     ?? "America/Chicago",
-        room:             `Room ${(i % 4) + 1}`,
+        id: a.id,
+        doctorId: a.doctor_id ?? doctorId,
+        clinicId: a.clinic_id ?? clinicId,
+        patient_id: a.patient_id,
+        first_name: a.first_name,
+        last_name: a.last_name,
+        dob: a.dob,
+        phone: a.phone,
+        email: a.email,
+        insurance: a.insurance ?? "N/A",
+        status: a.status,
+        reason: a.reason ?? "",
+        notes: a.notes ?? (a.status === "completed" ? "Patient reviewed. Follow-up in 6 weeks." : null),
+        start_time: a.start_time,
+        end_time: a.end_time,
+        durationMinutes: calcDuration(a.start_time, a.end_time),
+        timezone: a.timezone ?? "America/Chicago",
+        room: `Room ${(i % 4) + 1}`,
         insuranceVerified: i % 5 !== 0,
-        copayCollected:    a.status === "completed",
+        copayCollected: a.status === "completed",
         appointment_type: toCamelCase(a.appointment_type ?? "general"),
     }));
 
-    console.log('mapped appts:', mapped); // ✅ now has correct values
+    console.log('mapped appts:', mapped);//  now has correct values
 
-    // ✅ sort and return mapped — not raw
+   //  sort and return mapped — not raw
     return mapped.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
 }
 
@@ -128,7 +128,7 @@ const makeTasks = async (doctorId: string, clinicId: string, bffToken: string | 
 
 
     const now = new Date();
-    return tasks.map((t: any) => ({   // ✅ removed ? from params
+    return tasks.map((t: any) => ({  //  removed ? from params
         id: t.id,
         doctorId,
         clinicId,
@@ -413,7 +413,7 @@ export default function Dashboard({ user, bffToken }: DashboardProps): JSX.Eleme
             try {
                 const [mappedAppts, taskList] = await Promise.all([
                     getAppointments(user.doctorId, user.clinicId, bffToken),
-                    makeTasks(user.doctorId, user.clinicId, bffToken),        // ✅ now awaited
+                    makeTasks(user.doctorId, user.clinicId, bffToken),       //  now awaited
                 ]);
                 setAppointments(mappedAppts);
                 setTasks(taskList);
@@ -455,13 +455,31 @@ export default function Dashboard({ user, bffToken }: DashboardProps): JSX.Eleme
 
     const greeting = (): string => { const h = now.getHours(); return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"; };
 
-    async function handleReschedule(id: string, start: string, end: string, reason: string): Promise<void> {
-        // Replace with: await fetch(`/api/appointments/${id}/reschedule`, { method:"PATCH", ... })
-        setAppointments(prev => prev.map(a => a.id === id ? { ...a, start_time: start, end_time: end } : a));
+    async function handleReschedule(id: string, start_time: string, end_time: string, reason: string): Promise<void> {
+
+        const response = await fetch(`http://localhost:8080/appointments/${id}/reschedule`, {
+            method: "PATCH",
+            headers: {
+                'Authorization': `Bearer ${bffToken}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ start_time, end_time, reason }),
+
+        });
+        if (!response.ok) throw new Error('Failed to update appointments');
+
+        const updatedAppointment = await response.json();
+        // ✓ replace the old appointment in the list with the updated one
+        setAppointments(prev =>
+            prev.map(appt =>
+                appt.id === id ? updatedAppointment : appt
+            )
+        );
         setRescheduleAppt(null);
         setSelectedAppt(null);
         showToast("Appointment rescheduled successfully.");
     }
+
 
     function clearFilters(): void {
         const reset = { status: "all" as FilterStatus, type: "all", dateFrom: "", dateTo: "" };

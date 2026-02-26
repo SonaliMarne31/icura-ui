@@ -64,7 +64,7 @@ function SignIn() {
     });
 
     function handleLogout() {
-    // ✅ clear all auth state
+   //  clear all auth state
         setBffToken('');
         setClaims(null);
     }
@@ -84,7 +84,7 @@ function SignIn() {
                 tokenErr.error === 'consent_required' ||
                 tokenErr.error === 'missing_refresh_token'
             ) {
-                // ✅ re-establish Auth0 session then come back
+               //  re-establish Auth0 session then come back
                 await loginWithRedirect({
                     authorizationParams: {
                         redirect_uri: window.location.origin,
