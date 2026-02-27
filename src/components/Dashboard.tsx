@@ -6,6 +6,8 @@ type FilterStatus = "all" | "scheduled" | "completed" | "cancelled" | "no_show";
 type Priority = "high" | "medium" | "low";
 type TabId = "appointments" | "tasks" | "analytics";
 
+const SYSTEM_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 interface BFFClaims {
     doctorId: string; clinicId: string; clinicName: string;
     name: string; role: string; sub: string; exp: number;
@@ -88,14 +90,14 @@ const getAppointments = async (doctorId: string, clinicId: string, bffToken: str
         dob: a.dob,
         phone: a.phone,
         email: a.email,
-        insurance: a.insurance ?? "N/A",
+        insurance: a.insurance ?? "Medicare",
         status: a.status,
         reason: a.reason ?? "",
         notes: a.notes ?? (a.status === "completed" ? "Patient reviewed. Follow-up in 6 weeks." : null),
         start_time: a.start_time,
         end_time: a.end_time,
         durationMinutes: calcDuration(a.start_time, a.end_time),
-        timezone: a.timezone ?? "America/Chicago",
+        timezone: a.timezone ?? SYSTEM_TZ,
         room: `Room ${(i % 4) + 1}`,
         insuranceVerified: i % 5 !== 0,
         copayCollected: a.status === "completed",
@@ -137,23 +139,41 @@ const makeTasks = async (doctorId: string, clinicId: string, bffToken: string | 
         priority: t.priority,
         category: t.category,
         status: t.status,
-        dueDate: new Date(now).toISOString(),
+        dueDate: t.due_date || new Date(now).toISOString(),
     }));
 
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────
 function calcAge(dob: string): number {
-    const today = new Date(), birth = new Date(dob);
-    let age = today.getFullYear() - birth.getFullYear();
-    if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age--;
+    if (!dob) return 0;
+
+    // slice to ensure clean yyyy-mm-dd regardless of what backend sends
+    const parseDob = dob.slice(0, 10);
+    const [year, month, day] = parseDob.split("-").map(Number);
+
+    const today = new Date();
+    const todayY = today.getUTCFullYear();
+
+    let age = todayY - year;
+
     return age;
 }
-function fmtDate(iso: string, tz = "America/Chicago"): string {
-    try { return new Intl.DateTimeFormat("en-US", { timeZone: tz, month: "short", day: "numeric", year: "numeric" }).format(new Date(iso)); }
-    catch { return iso; }
+
+function fmtDate(iso: string, tz = SYSTEM_TZ): string {
+  try {
+    const date = isNaN(Number(iso)) ? new Date(iso) : new Date(parseInt(iso));
+    return new Intl.DateTimeFormat("en-US", { 
+      timeZone: tz, 
+      month: "short", 
+      day: "numeric", 
+      year: "numeric" 
+    }).format(date);
+  } catch {
+    return iso;
+  }
 }
-function fmtTime(iso: string, tz = "America/Chicago"): string {
+function fmtTime(iso: string, tz = SYSTEM_TZ): string {
     try { return new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "numeric", minute: "2-digit", hour12: true }).format(new Date(iso)); }
     catch { return iso; }
 }
@@ -207,7 +227,7 @@ interface RescheduleModalProps {
 }
 
 function RescheduleModal({ appointment, onClose, onSave }: RescheduleModalProps): JSX.Element {
-    const tz = appointment.timezone || "America/Chicago";
+    const tz = appointment.timezone || SYSTEM_TZ;
     const apptDate = new Date(appointment.start_time);
     const [date, setDate] = useState(apptDate.toLocaleDateString("en-CA", { timeZone: tz }));
     const [time, setTime] = useState(apptDate.toLocaleTimeString("en-GB", { timeZone: tz, hour: "2-digit", minute: "2-digit" }));
@@ -310,7 +330,7 @@ function AppointmentDrawer({ appointment, onClose, onReschedule }: { appointment
                 <div className="drawer-body">
                     <DrawerSection title="Patient">
                         <DrawerRow icon="user" label="Name" value={`${appointment.first_name} ${appointment.last_name}`} bold />
-                        <DrawerRow icon="calendar" label="DOB" value={`${appointment.dob} (Age ${age})`} />
+                        <DrawerRow icon="calendar" label="DOB" value={`${appointment.dob.slice(0, 10)} (Age ${age})`} />
                         <DrawerRow icon="phone" label="Phone" value={appointment.phone} />
                         <DrawerRow icon="mail" label="Email" value={appointment.email} />
                         <DrawerRow icon="shield" label="Insurance" value={appointment.insurance} />
@@ -395,17 +415,6 @@ export default function Dashboard({ user, bffToken }: DashboardProps): JSX.Eleme
         setTimeout(() => setToast(null), 3500);
     }, []);
 
-    // Load data (replace with real fetch calls)
-    // useEffect(() => {
-    //     setLoading(true);
-    //     setTimeout(() => {
-    //         setAppointments(makeAppointments(user.doctorId, user.clinicId));
-    //         makeTasks(user.doctorId, user.clinicId, bffToken);
-
-    //         setLoading(false);
-    //     }, 600);
-    // }, [user.doctorId, user.clinicId]);
-
     useEffect(() => {
         setLoading(true);
 
@@ -426,7 +435,6 @@ export default function Dashboard({ user, bffToken }: DashboardProps): JSX.Eleme
 
         loadData();
     }, [user.doctorId, user.clinicId]);
-
 
     // Derived metrics
     const now = new Date();
