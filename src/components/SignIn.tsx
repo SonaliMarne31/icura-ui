@@ -47,16 +47,59 @@ const EyeIcon = ({ open }: { open: boolean }) => (
     </svg>
 );
 
+// ─── SESSION ────────────────────────────────────────────────
+const SESSION_KEY_TOKEN  = "bff_token";
+const SESSION_KEY_CLAIMS = "bff_claims";
+
+function saveSession(token: string, claims: BFFClaims): void {
+    sessionStorage.setItem(SESSION_KEY_TOKEN,  token);
+    sessionStorage.setItem(SESSION_KEY_CLAIMS, JSON.stringify(claims));
+}
+
+function loadSession(): { token: string; claims: BFFClaims } | null {
+    try {
+        const token  = sessionStorage.getItem(SESSION_KEY_TOKEN);
+        const claims = sessionStorage.getItem(SESSION_KEY_CLAIMS);
+
+        if (!token || !claims) return null;
+
+        const decoded = JSON.parse(claims) as BFFClaims;
+
+        // check token not expired before restoring
+        if (decoded.exp * 1000 < Date.now()) {
+            clearSession();   // expired
+            return null;
+        }
+
+        return { token, claims: decoded };
+    } catch {
+        clearSession();
+        return null;
+    }
+}
+
+function clearSession(): void {
+    sessionStorage.removeItem(SESSION_KEY_TOKEN);
+    sessionStorage.removeItem(SESSION_KEY_CLAIMS);
+}
+
 // ─── COMPONENT ────────────────────────────────────────────────
 function SignIn() {
+
+    // load session
+    const savedSession = loadSession();
+
+
     const { getAccessTokenSilently, loginWithRedirect } = useAuth0();
 
     const [loginError, setLoginError] = React.useState<string | null>(null);
-    const [showHome,   setShowHome]   = React.useState(false);
-    const [claims,     setClaims]     = React.useState<BFFClaims | null>(null);
     const [showPass,   setShowPass]   = React.useState(false);
     const [loading,    setLoading]    = React.useState(false);
-    const [bffToken,   setBffToken]    = React.useState('');
+
+    const [bffToken, setBffToken] = React.useState<string>(savedSession?.token   ?? "");
+    const [claims,   setClaims]   = React.useState<BFFClaims | null>(savedSession?.claims ?? null);
+    const [showHome, setShowHome] = React.useState<boolean>(!!savedSession);
+
 
     const { register, handleSubmit, formState: { errors } } = useForm<LoginFormValues>({
         resolver: zodResolver(loginSchema),
@@ -67,8 +110,11 @@ function SignIn() {
    //  clear all auth state
         setBffToken('');
         setClaims(null);
+        setShowHome(false);
+        clearSession();
     }
 
+   
     const onSubmit = async (data: LoginFormValues) => {
         try {
             setLoginError(null);
@@ -118,9 +164,11 @@ function SignIn() {
             const decoded = decodeJWT(result.token);
             if (!decoded) throw new Error('Invalid token received');
 
+
+            saveSession(result.token, decoded);
+
             setClaims(decoded);
             setShowHome(true);
-            console.log('token before sending to dash ', result);
             setBffToken(result.token);
 
         } catch (err) {
@@ -131,7 +179,7 @@ function SignIn() {
     };
 
     if (showHome && claims) {
-        return <Dashboard user={claims} bffToken={bffToken}/>;
+        return <Dashboard user={claims} bffToken={bffToken} handleLogout={handleLogout}/>;
     }
 
     return (

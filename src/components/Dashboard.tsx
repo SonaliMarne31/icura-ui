@@ -48,6 +48,7 @@ interface Task {
 interface DashboardProps {
     user: BFFClaims;
     bffToken: string;
+    handleLogout: () => void;
 }
 
 
@@ -398,7 +399,7 @@ function StatusBadge({ status }: { status: string }): JSX.Element {
 }
 
 // ─── MAIN DASHBOARD ───────────────────────────────────────────
-export default function Dashboard({ user, bffToken }: DashboardProps): JSX.Element {
+export default function Dashboard({ user, bffToken, handleLogout }: DashboardProps): JSX.Element {
     const [activeTab, setActiveTab] = useState<TabId>("appointments");
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [tasks, setTasks] = useState<Task[]>([]);
@@ -535,7 +536,7 @@ export default function Dashboard({ user, bffToken }: DashboardProps): JSX.Eleme
                             {getInitials(user.name.split(" ")[0] ?? user.name, user.name.split(" ")[1] ?? "")}
                         </span>
                     </div>
-                    <button className="dashboard-logout-btn">
+                    <button className="dashboard-logout-btn" onClick={handleLogout}>
                         <Ico name="logout" size={14} /> Sign out
                     </button>
                 </div>
